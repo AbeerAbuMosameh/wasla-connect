@@ -1,0 +1,46 @@
+services:
+  - type: web
+    name: wasla-connect
+    runtime: docker
+    dockerfilePath: ./Dockerfile
+    healthCheckPath: /healthz
+    envVars:
+      - key: APP_ENV
+        value: production
+      - key: APP_DEBUG
+        value: false
+      - key: APP_KEY
+        generateValue: true
+      - key: DB_CONNECTION
+        value: pgsql
+      - key: DB_HOST
+        fromDatabase:
+          name: wasla-connect-db
+          property: host
+      - key: DB_PORT
+        fromDatabase:
+          name: wasla-connect-db
+          property: port
+      - key: DB_DATABASE
+        fromDatabase:
+          name: wasla-connect-db
+          property: database
+      - key: DB_USERNAME
+        fromDatabase:
+          name: wasla-connect-db
+          property: user
+      - key: DB_PASSWORD
+        fromDatabase:
+          name: wasla-connect-db
+          property: password
+      - key: SESSION_DRIVER
+        value: file
+      - key: CACHE_STORE
+        value: file
+      - key: LOG_CHANNEL
+        value: stderr
+
+databases:
+  - name: wasla-connect-db
+    databaseName: wasla_connect
+    plan: free
