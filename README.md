@@ -1,58 +1,162 @@
-<p align="center"><a href="https://laravel.com" target="_blank"><img src="https://raw.githubusercontent.com/laravel/art/master/logo-lockup/5%20SVG/2%20CMYK/1%20Full%20Color/laravel-logolockup-cmyk-red.svg" width="400" alt="Laravel Logo"></a></p>
+# Wasla Connect — Mentor Meeting Notes
 
-<p align="center">
-<a href="https://github.com/laravel/framework/actions"><img src="https://github.com/laravel/framework/workflows/tests/badge.svg" alt="Build Status"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/dt/laravel/framework" alt="Total Downloads"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/v/laravel/framework" alt="Latest Stable Version"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/l/laravel/framework" alt="License"></a>
-</p>
+A Laravel app to log and track mentor sessions in the Wasla Connect program. Schedule meetings in advance, then add discussion notes and action items after each session.
 
-## About Laravel
+![CI/CD](https://github.com/AbeerAbuMosameh/wasla-connect/actions/workflows/ci-cd.yml/badge.svg)
 
-Laravel is a web application framework with expressive, elegant syntax. We believe development must be an enjoyable and creative experience to be truly fulfilling. Laravel takes the pain out of development by easing common tasks used in many web projects, such as:
+---
 
-- [Simple, fast routing engine](https://laravel.com/docs/routing).
-- [Powerful dependency injection container](https://laravel.com/docs/container).
-- Multiple back-ends for [session](https://laravel.com/docs/session) and [cache](https://laravel.com/docs/cache) storage.
-- Expressive, intuitive [database ORM](https://laravel.com/docs/eloquent).
-- Database agnostic [schema migrations](https://laravel.com/docs/migrations).
-- [Robust background job processing](https://laravel.com/docs/queues).
-- [Real-time event broadcasting](https://laravel.com/docs/broadcasting).
+## Features
 
-Laravel is accessible, powerful, and provides tools required for large, robust applications.
+- Schedule meetings with date, time, duration, and type
+- Two-phase workflow: schedule first, add notes after
+- Track topics covered, accomplishments, action items, and takeaways
+- Meeting status: `scheduled` → `completed`
+- Dashboard stats: total meetings & total hours logged
 
-## Learning Laravel
+---
 
-Laravel has the most extensive and thorough [documentation](https://laravel.com/docs) and video tutorial library of all modern web application frameworks, making it a breeze to get started with the framework.
+## Local Development
 
-In addition, [Laracasts](https://laracasts.com) contains thousands of video tutorials on a range of topics including Laravel, modern PHP, unit testing, and JavaScript. Boost your skills by digging into our comprehensive video library.
+### Requirements
 
-You can also watch bite-sized lessons with real-world projects on [Laravel Learn](https://laravel.com/learn), where you will be guided through building a Laravel application from scratch while learning PHP fundamentals.
+- PHP 8.3+
+- Composer
+- SQLite (bundled with PHP)
 
-## Agentic Development
-
-Laravel's predictable structure and conventions make it ideal for AI coding agents like Claude Code, Cursor, and GitHub Copilot. Install [Laravel Boost](https://laravel.com/docs/ai) to supercharge your AI workflow:
+### Setup
 
 ```bash
-composer require laravel/boost --dev
+git clone https://github.com/AbeerAbuMosameh/wasla-connect.git
+cd wasla-connect
 
-php artisan boost:install
+composer install
+cp .env.example .env
+php artisan key:generate
+php artisan migrate
+php artisan serve
 ```
 
-Boost provides your agent 15+ tools and skills that help agents build Laravel applications while following best practices.
+Visit `http://127.0.0.1:8000`.
 
-## Contributing
+---
 
-Thank you for considering contributing to the Laravel framework! The contribution guide can be found in the [Laravel documentation](https://laravel.com/docs/contributions).
+## Running with Docker
 
-## Code of Conduct
+### Requirements
 
-In order to ensure that the Laravel community is welcoming to all, please review and abide by the [Code of Conduct](https://laravel.com/docs/contributions#code-of-conduct).
+- Docker Desktop
 
-## Security Vulnerabilities
+### Build and run
 
-If you discover a security vulnerability within Laravel, please send an e-mail to Taylor Otwell via [taylor@laravel.com](mailto:taylor@laravel.com). All security vulnerabilities will be promptly addressed.
+```bash
+docker build -t wasla-connect .
+
+docker run -p 8080:80 \
+  -e APP_KEY=$(php artisan --no-ansi key:generate --show) \
+  -e APP_ENV=local \
+  -e DB_CONNECTION=sqlite \
+  -e DB_DATABASE=/var/www/html/database/database.sqlite \
+  wasla-connect
+```
+
+Visit `http://localhost:8080`.
+
+> The container runs PHP-FPM + Nginx managed by Supervisord.
+> On startup it automatically runs `php artisan migrate`.
+
+---
+
+## Deployment on Render
+
+### One-click deploy via Blueprint
+
+1. Push this repo to GitHub
+2. Go to [render.com](https://render.com) → **New → Blueprint**
+3. Connect the `wasla-connect` repository
+4. Render reads `render.yaml` and auto-creates:
+   - A **web service** running the Docker container
+   - A **free PostgreSQL database** wired up automatically
+5. Click **Apply** — first deploy starts immediately
+
+### Environment variables (set in Render dashboard)
+
+| Variable | Value |
+|---|---|
+| `APP_ENV` | `production` |
+| `APP_DEBUG` | `false` |
+| `APP_KEY` | Auto-generated by Render |
+| `DB_CONNECTION` | `pgsql` |
+| `DB_HOST` / `DB_PORT` / `DB_DATABASE` / `DB_USERNAME` / `DB_PASSWORD` | Auto-injected from the Render database |
+
+---
+
+## CI/CD Pipeline
+
+Every push to `main` runs three jobs in order:
+
+```
+Test → Docker Build → Deploy to Render
+```
+
+| Job | What it does |
+|---|---|
+| **Test** | Installs PHP 8.3, runs Composer, applies SQLite migrations, runs all feature tests |
+| **Docker Build** | Builds the production Docker image to catch any container errors |
+| **Deploy** | POSTs to the Render deploy hook — only runs if both previous jobs pass |
+
+### Setup
+
+Add one secret to GitHub → **Settings → Secrets and variables → Actions**:
+
+| Secret | Where to get it |
+|---|---|
+| `RENDER_DEPLOY_HOOK_URL` | Render dashboard → your service → **Settings → Deploy Hook** |
+
+---
+
+## Running Tests
+
+```bash
+php artisan test
+```
+
+Tests use an in-memory SQLite database and cover:
+
+- Index, create pages load correctly
+- Scheduling a meeting saves to the database
+- Validation rejects missing required fields
+- Adding post-meeting notes marks meeting as completed
+- Deleting a meeting removes it from the database
+
+---
+
+## Project Structure
+
+```
+app/
+  Http/Controllers/MeetingController.php  — CRUD + notes workflow
+  Models/Meeting.php                      — Meeting model
+database/
+  migrations/                             — meetings table schema
+resources/views/
+  layouts/app.blade.php                   — shared layout
+  meetings/
+    index.blade.php                       — meetings list
+    create.blade.php                      — schedule form
+    show.blade.php                        — meeting detail
+    edit.blade.php                        — edit + add notes
+docker/
+  nginx.conf                              — Nginx config (PORT injected at runtime)
+  supervisord.conf                        — manages PHP-FPM + Nginx
+  start.sh                                — container entrypoint
+Dockerfile                                — multi-stage build
+render.yaml                               — Render deployment blueprint
+.github/workflows/ci-cd.yml              — GitHub Actions pipeline
+```
+
+---
 
 ## License
 
-The Laravel framework is open-sourced software licensed under the [MIT license](https://opensource.org/licenses/MIT).
+MIT
