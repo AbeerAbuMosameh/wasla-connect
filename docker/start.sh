@@ -1,10 +1,8 @@
 #!/bin/sh
 set -e
 
-# ── 1. Build .env from environment variables ──────────────────────────────────
-# Must happen before any artisan command. Using printf so special characters
-# in values (e.g. $ ! \ in DB passwords) are written literally without
-# shell re-expansion.
+# ── 1. Write .env from environment variables ──────────────────────────────────
+# printf keeps special characters in values ($ ! \ in DB passwords) literal.
 echo "==> Writing .env from environment variables..."
 {
     printf 'APP_NAME="%s"\n'         "${APP_NAME:-Wasla Connect}"
@@ -30,8 +28,7 @@ echo "==> Writing .env from environment variables..."
     printf 'CACHE_STORE="%s"\n'      "${CACHE_STORE:-file}"
     printf 'QUEUE_CONNECTION="%s"\n' "${QUEUE_CONNECTION:-sync}"
 } > /var/www/html/.env
-
-echo "==> .env written successfully."
+echo "==> .env written."
 
 # ── 2. Nginx config ────────────────────────────────────────────────────────────
 echo "==> Configuring Nginx (PORT=${PORT:-80})..."
@@ -39,25 +36,36 @@ envsubst '$PORT' < /etc/nginx/nginx.conf.template > /etc/nginx/nginx.conf
 
 # ── 3. Validate APP_KEY ────────────────────────────────────────────────────────
 # Render's generateValue produces a plain random string, not the base64: format
-# Laravel requires. Detect and replace before caching anything.
+# Laravel requires for encryption.
+#
+# IMPORTANT: after key:generate updates .env, we must also export the new key
+# into the shell environment. Otherwise `php artisan optimize` (next step) reads
+# APP_KEY from the stale environment variable, caches the wrong key, and every
+# HTTP request fails decryption with a 500.
 if [ -z "$APP_KEY" ] || ! echo "$APP_KEY" | grep -q "^base64:"; then
-    echo "==> APP_KEY invalid — generating a proper key..."
+    echo "==> APP_KEY missing or invalid — generating..."
     php artisan key:generate --force
+    APP_KEY=$(grep "^APP_KEY=" /var/www/html/.env | cut -d'=' -f2- | tr -d '"')
+    export APP_KEY
+    echo "==> APP_KEY generated and exported: ${APP_KEY:0:16}..."
 else
     echo "==> APP_KEY is valid."
 fi
 
-# ── 4. Clear stale caches, then rebuild ───────────────────────────────────────
+# ── 4. Cache config, routes, views ────────────────────────────────────────────
 echo "==> Clearing stale caches..."
 php artisan optimize:clear
 
-echo "==> Caching config, routes, and views..."
+echo "==> Building cache (uses exported APP_KEY)..."
 php artisan optimize
 
-# ── 5. Migrations ─────────────────────────────────────────────────────────────
+# ── 5. Fix permissions so PHP-FPM (www-data) can write to storage ─────────────
+chown -R www-data:www-data /var/www/html/storage /var/www/html/bootstrap/cache
+
+# ── 6. Migrations ─────────────────────────────────────────────────────────────
 echo "==> Running database migrations..."
 php artisan migrate --force
 
-# ── 6. Start services ─────────────────────────────────────────────────────────
+# ── 7. Start services ─────────────────────────────────────────────────────────
 echo "==> Starting PHP-FPM and Nginx..."
 exec /usr/bin/supervisord -c /etc/supervisord.conf
