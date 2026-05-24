@@ -9,8 +9,15 @@ services:
         value: production
       - key: APP_DEBUG
         value: false
+
+      # Render's generateValue generates a plain string — start.sh detects this
+      # and calls `php artisan key:generate` to produce a valid base64: key.
+      # After first deploy, copy the generated key from logs and set it manually
+      # here so it stays stable across restarts.
       - key: APP_KEY
         generateValue: true
+
+      # Database — individual params injected from the Render PostgreSQL service
       - key: DB_CONNECTION
         value: pgsql
       - key: DB_HOST
@@ -33,10 +40,19 @@ services:
         fromDatabase:
           name: wasla-connect-db
           property: password
+      - key: DB_SSLMODE
+        value: require
+
+      # Use database-backed sessions so they survive container restarts/redeploys
       - key: SESSION_DRIVER
-        value: file
+        value: database
+      - key: SESSION_LIFETIME
+        value: 120
+
       - key: CACHE_STORE
         value: file
+      - key: QUEUE_CONNECTION
+        value: sync
       - key: LOG_CHANNEL
         value: stderr
 
