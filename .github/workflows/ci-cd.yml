@@ -79,6 +79,12 @@ jobs:
 
     steps:
       - name: Trigger Render deploy hook
+        env:
+          DEPLOY_HOOK_URL: ${{ secrets.RENDER_DEPLOY_HOOK_URL }}
         run: |
-          curl -fsSL -X POST "${{ secrets.RENDER_DEPLOY_HOOK_URL }}"
+          if [ -z "$DEPLOY_HOOK_URL" ]; then
+            echo "RENDER_DEPLOY_HOOK_URL secret not configured — skipping deploy."
+            exit 0
+          fi
+          curl -fsSL -X POST "$DEPLOY_HOOK_URL"
           echo "Deploy triggered on Render."

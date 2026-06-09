@@ -184,6 +184,9 @@ docker/
 Dockerfile                                — multi-stage build
 render.yaml                               — Render deployment blueprint
 .github/workflows/ci-cd.yml              — GitHub Actions pipeline
+.githooks/
+  pre-commit                             — runs unit tests + PHPStan before each commit
+  pre-push                               — runs feature tests before each push
 ```
 
 ---
