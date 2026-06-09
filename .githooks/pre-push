@@ -1,0 +1,12 @@
+#!/bin/sh
+set -e
+
+echo "Running pre-push checks..."
+
+echo ""
+echo ">> Running feature tests..."
+php artisan test --testsuite=Feature
+echo "Feature tests passed."
+
+echo ""
+echo "Pre-push checks passed."

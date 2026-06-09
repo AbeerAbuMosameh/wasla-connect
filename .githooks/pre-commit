@@ -1,0 +1,21 @@
+#!/bin/sh
+set -e
+
+echo "Running pre-commit checks..."
+
+echo ""
+echo ">> Running unit tests..."
+php artisan test --testsuite=Unit
+echo "Unit tests passed."
+
+echo ""
+if [ -f "./vendor/bin/phpstan" ]; then
+    echo ">> Running PHPStan static analysis..."
+    ./vendor/bin/phpstan analyse
+    echo "PHPStan passed."
+else
+    echo ">> PHPStan not installed, skipping static analysis."
+fi
+
+echo ""
+echo "Pre-commit checks passed."

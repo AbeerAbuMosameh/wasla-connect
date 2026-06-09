@@ -131,6 +131,37 @@ Tests use an in-memory SQLite database and cover:
 
 ---
 
+## Git Hooks
+
+The project ships with local git hooks in the `.githooks/` folder to catch issues before they reach CI.
+
+### Activate hooks (run once after cloning)
+
+```bash
+composer run hooks
+```
+
+This sets `core.hooksPath` to `.githooks/` so git uses the project hooks instead of the default `.git/hooks/`.
+
+### What each hook does
+
+| Hook | Trigger | Checks |
+|---|---|---|
+| **pre-commit** | `git commit` | Unit tests (`php artisan test --testsuite=Unit`), PHPStan static analysis (skipped if not installed) |
+| **pre-push** | `git push` | Feature tests (`php artisan test --testsuite=Feature`) |
+
+A failing check blocks the commit or push. Fix the reported errors, then re-run your git command.
+
+### Installing PHPStan (optional)
+
+```bash
+composer require --dev phpstan/phpstan
+```
+
+Once installed, `vendor/bin/phpstan` is detected automatically and runs on every commit.
+
+---
+
 ## Project Structure
 
 ```
